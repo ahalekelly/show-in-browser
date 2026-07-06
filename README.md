@@ -14,7 +14,7 @@ The file is read by the background service worker: in Manifest V3 a content scri
 
 Why not AppleScript: its `reload` does a full document reload (blank → refetch → repaint), which always flashes.
 
-**Move to end (no reload).** Moving a tab's position doesn't reload its page, but AppleScript's `move` destroys the tab and inserts a blank one. `chrome.tabs.move` is the only real tab-relocation API, so `last` delegates here: the script opens a lightweight `data:` trigger tab whose fragment carries the target URL, and the extension reads it, closes the trigger, and moves the real tab.
+**Move to end (no reload, no flash).** Moving a tab's position doesn't reload its page, but AppleScript's `move` destroys the tab and inserts a blank one, and creating a trigger tab flashes the foreground because Vivaldi activates new tabs. So `last` instead appends `#claude-move-to-end` to the report tab's own URL — a same-document change that neither reloads the page nor changes the active tab — and the extension (`chrome.tabs.move`, the only real relocation API) moves that tab to the end and strips the fragment. This stays flicker-free even when the moved tab is in the background and you're viewing another tab.
 
 ## Setup
 

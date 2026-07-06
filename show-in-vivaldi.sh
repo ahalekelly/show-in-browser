@@ -7,9 +7,9 @@
 #   Otherwise open a new tab (new tabs always land at the end of the tab strip).
 #   focus - bring the tab, its window, and Vivaldi to the foreground.
 #   last  - move an already-open tab to the end of the tab strip, keeping its
-#           scroll position and history. Opens a lightweight data-URL trigger tab
-#           that the extension consumes; if a trigger tab lingers, the extension
-#           is not installed or not enabled.
+#           scroll position and history. Signalled by appending a fragment to the
+#           tab's own URL (a same-document change, so no reload and no focus
+#           change); the extension moves the tab and strips the fragment.
 #   Without focus, the user's previously selected tab stays selected.
 #
 # Live reload requires the extension loaded, "Allow access to file URLs" enabled
@@ -30,23 +30,19 @@ for opt in "$@"; do
     esac
 done
 
-TRIGGER_URL="data:text/html,siv#claude-move-to-end:$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1], safe=''))" "$FILE_URL")"
-
-osascript - "$FILE_URL" "$LAST" "$TRIGGER_URL" <<'EOF'
+osascript - "$FILE_URL" "$LAST" <<'EOF'
 on run argv
     set theURL to item 1 of argv
     set wantLast to item 2 of argv is "true"
-    set triggerURL to item 3 of argv
     tell application "Vivaldi"
         repeat with w in windows
             repeat with t in tabs of w
                 if URL of t is theURL then
                     if wantLast then
-                        -- append the trigger tab, then immediately restore the
-                        -- user's selected tab so the view never flips to it
-                        set prevActive to active tab index of w
-                        tell w to make new tab with properties {URL:triggerURL}
-                        set active tab index of w to prevActive
+                        -- append a fragment to the tab's own URL: a same-document
+                        -- change, so no reload and no focus change. The extension
+                        -- moves this tab to the end and strips the fragment.
+                        set URL of t to (theURL & "#claude-move-to-end")
                         return "moving tab to end"
                     end if
                     return "already open"
