@@ -8,7 +8,7 @@ Show local HTML files in Vivaldi from the command line, with **flicker-free live
 
 ## The extension
 
-**Live reload (no flicker).** A content script runs on pages that opt in with `<meta name="show-in-vivaldi">`. It polls the file and, when it changes, swaps the page content in a single paint instead of navigating — so there is no white flash and the scroll position is kept. Edit the file and the open page updates itself; you don't re-run the script to refresh.
+**Live reload (no flicker).** A content script runs on every local page. It polls the file and, when it changes, swaps the page content in a single paint instead of navigating — so there is no white flash and the scroll position is kept. Edit the file and the open page updates itself; you don't re-run the script to refresh. Pages with `<script>`s get a normal (flashing) reload instead, because the swap would not re-run them.
 
 The file is read by an offscreen extension document: content scripts and pages cannot read `file://` because their requests use the page's `file://` origin, and the service worker has no XHR and its `fetch(file://)` is unreliable. The content script messages the service worker, which relays to an offscreen document whose `chrome-extension://` origin can XHR `file://` when the extension has file access.
 
@@ -23,4 +23,4 @@ Why not AppleScript: its `reload` does a full document reload (blank → refetch
 3. **Load unpacked** → select this directory
 4. Open the extension's details and enable **Allow access to file URLs** (required for live reload of `file://` pages)
 
-Add `<meta name="show-in-vivaldi">` to any HTML you want live-reloaded. The content script is injected into all `file://` pages except `.md` (left to a dedicated markdown extension) and stays inert unless the meta is present.
+All local `.html`/`.htm`/`.xhtml` pages are live-reloaded. Other file types are left alone: non-HTML files render through browser-generated wrapper documents the swap would clobber, and `.md` has a dedicated markdown extension.
