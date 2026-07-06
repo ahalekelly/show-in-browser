@@ -1,20 +1,22 @@
 #!/bin/bash
 # Show a local HTML file in Vivaldi without duplicate tabs.
 # Usage: show-in-vivaldi.sh <absolute-path> [focus] [last]
-#   If a tab already has this URL, reload it (quietly, in the background;
-#   reload preserves the tab's scroll position).
+#   If a tab already has this URL, leave it in place: the extension's live-reload
+#   content script updates the page content on its own when the file changes,
+#   with no flicker and no re-running of this script.
 #   Otherwise open a new tab (new tabs always land at the end of the tab strip).
-#   focus - also bring the tab, its window, and Vivaldi to the foreground.
+#   focus - bring the tab, its window, and Vivaldi to the foreground.
 #   last  - move an already-open tab to the end of the tab strip, keeping its
-#           scroll position and history. Requires the "Tab Mover for Claude"
-#           extension in this repo: the script
-#           opens <url>#claude-move-to-end as a trigger tab, which the extension
-#           consumes and closes after moving the real tab. If a tab with that
-#           marker URL lingers, the extension is not installed or not enabled.
+#           scroll position and history. Opens a lightweight data-URL trigger tab
+#           that the extension consumes; if a trigger tab lingers, the extension
+#           is not installed or not enabled.
 #   Without focus, the user's previously selected tab stays selected.
-#   AppleScript's "move" is never used here: on Vivaldi tabs it destroys the tab
-#   and inserts a blank one, and tab indexes queried in the same osascript
-#   process after any tab mutation are unreliable.
+#
+# Live reload requires the extension loaded, "Allow access to file URLs" enabled
+# for it, and <meta name="show-in-vivaldi"> in the HTML to opt the page in.
+# AppleScript's "move" is never used here: on Vivaldi tabs it destroys the tab
+# and inserts a blank one, and tab indexes queried in the same osascript process
+# after any tab mutation are unreliable.
 set -euo pipefail
 FILE_URL="file://$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))" "$1")"
 shift
@@ -28,30 +30,32 @@ for opt in "$@"; do
     esac
 done
 
-osascript - "$FILE_URL" "$LAST" <<'EOF'
+TRIGGER_URL="data:text/html,siv#claude-move-to-end:$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1], safe=''))" "$FILE_URL")"
+
+osascript - "$FILE_URL" "$LAST" "$TRIGGER_URL" <<'EOF'
 on run argv
     set theURL to item 1 of argv
     set wantLast to item 2 of argv is "true"
+    set triggerURL to item 3 of argv
     tell application "Vivaldi"
         repeat with w in windows
             repeat with t in tabs of w
                 if URL of t is theURL then
-                    reload t
                     if wantLast then
-                        -- trigger tab for the Tab Mover extension; it moves the
-                        -- real tab to the end, then closes this tab, which also
-                        -- restores the user's previously selected tab
-                        tell w to make new tab with properties {URL:theURL & "#claude-move-to-end"}
-                        return "moved tab to end"
+                        -- append the trigger tab, then immediately restore the
+                        -- user's selected tab so the view never flips to it
+                        set prevActive to active tab index of w
+                        tell w to make new tab with properties {URL:triggerURL}
+                        set active tab index of w to prevActive
+                        return "moving tab to end"
                     end if
-                    return "reloaded existing tab"
+                    return "already open"
                 end if
             end repeat
         end repeat
         set w to front window
         set prevActive to active tab index of w
         tell w to make new tab with properties {URL:theURL}
-        -- restore the user's selected tab (index saved before the mutation)
         set active tab index of w to prevActive
         return "opened new tab"
     end tell

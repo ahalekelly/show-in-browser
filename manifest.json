@@ -1,8 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "Tab Mover for Claude",
-  "version": "1.0",
-  "description": "Moves an existing tab to the end of its window without reloading it. Opening <url>#claude-move-to-end in a new tab moves the tab showing <url> and closes the trigger tab.",
+  "name": "show-in-vivaldi",
+  "version": "2.0",
+  "description": "Live-reloads local HTML pages in place with no flicker, and moves a tab to the end of its window without reloading it.",
   "permissions": ["tabs"],
-  "background": { "service_worker": "background.js" }
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    { "matches": ["file:///*"], "js": ["livereload.js"], "run_at": "document_idle" }
+  ]
 }
