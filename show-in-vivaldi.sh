@@ -1,6 +1,6 @@
 #!/bin/bash
 # Show a local HTML file in Vivaldi without duplicate tabs.
-# Usage: vivaldi-show.sh <absolute-path> [focus] [last]
+# Usage: show-in-vivaldi.sh <absolute-path> [focus] [last]
 #   If a tab already has this URL, reload it (quietly, in the background;
 #   reload preserves the tab's scroll position).
 #   Otherwise open a new tab (new tabs always land at the end of the tab strip).
