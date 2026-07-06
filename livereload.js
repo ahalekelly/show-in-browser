@@ -18,8 +18,16 @@
   let last = null;
   let timer = null;
 
+  // Reloading the extension orphans this script for good: sendMessage then
+  // throws "Extension context invalidated" synchronously. Stop polling —
+  // reloading the tab injects a fresh copy.
   function read() {
-    return chrome.runtime.sendMessage({ action: 'read', url }).catch(() => null);
+    try {
+      return chrome.runtime.sendMessage({ action: 'read', url }).catch(() => null);
+    } catch {
+      clearInterval(timer);
+      return null;
+    }
   }
 
   async function poll() {
