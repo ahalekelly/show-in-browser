@@ -22,4 +22,6 @@ If a tab with the `#claude-move-to-end` marker lingers, the extension is not ins
 2. Enable **Developer mode**
 3. **Load unpacked** → select this directory
 
-Used by `~/.claude/scripts/vivaldi-show.sh` (the `last` option).
+## vivaldi-show.sh
+
+`vivaldi-show.sh <absolute-path> [focus] [last]` shows a local HTML file in Vivaldi without duplicate tabs: it reloads the existing tab if the file is already open, or opens a new tab, quietly in the background by default. `focus` brings the tab to the foreground; `last` moves it to the end of the tab strip via this extension. Reload and move both preserve scroll position.
