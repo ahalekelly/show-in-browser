@@ -3,9 +3,14 @@
   "name": "show-in-vivaldi",
   "version": "2.0",
   "description": "Live-reloads local HTML pages in place with no flicker, and moves a tab to the end of its window without reloading it.",
-  "permissions": ["tabs"],
+  "permissions": ["tabs", "offscreen"],
   "background": { "service_worker": "background.js" },
   "content_scripts": [
-    { "matches": ["file:///*"], "js": ["livereload.js"], "run_at": "document_idle" }
+    {
+      "matches": ["file:///*"],
+      "exclude_matches": ["file:///*.md"],
+      "js": ["livereload.js"],
+      "run_at": "document_idle"
+    }
   ]
 }

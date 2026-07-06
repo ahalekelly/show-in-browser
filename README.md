@@ -10,7 +10,7 @@ Show local HTML files in Vivaldi from the command line, with **flicker-free live
 
 **Live reload (no flicker).** A content script runs on pages that opt in with `<meta name="show-in-vivaldi">`. It polls the file and, when it changes, swaps the page content in a single paint instead of navigating — so there is no white flash and the scroll position is kept. Edit the file and the open page updates itself; you don't re-run the script to refresh.
 
-The file is read by the background service worker: in Manifest V3 a content script / page context cannot `fetch()` a `file://` URL, but the service worker can when the extension has file access, so the content script messages it (`{ action: 'read' }`) and gets the text back.
+The file is read by an offscreen extension document: content scripts and pages cannot read `file://` because their requests use the page's `file://` origin, and the service worker has no XHR and its `fetch(file://)` is unreliable. The content script messages the service worker, which relays to an offscreen document whose `chrome-extension://` origin can XHR `file://` when the extension has file access.
 
 Why not AppleScript: its `reload` does a full document reload (blank → refetch → repaint), which always flashes.
 
@@ -23,4 +23,4 @@ Why not AppleScript: its `reload` does a full document reload (blank → refetch
 3. **Load unpacked** → select this directory
 4. Open the extension's details and enable **Allow access to file URLs** (required for live reload of `file://` pages)
 
-Add `<meta name="show-in-vivaldi">` to any HTML you want live-reloaded.
+Add `<meta name="show-in-vivaldi">` to any HTML you want live-reloaded. The content script is injected into all `file://` pages except `.md` (left to a dedicated markdown extension) and stays inert unless the meta is present.

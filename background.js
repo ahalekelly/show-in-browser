@@ -1,10 +1,24 @@
-// Reads local files on behalf of the live-reload content script: a service
-// worker can fetch() a file:// URL when the extension has "Allow access to file
-// URLs" enabled, but a content script / page context cannot.
+// Relays file reads from the live-reload content script to the offscreen
+// document (see offscreen.js for why that is the only context that can read
+// file:// URLs). Created lazily; `creating` guards against the "only a single
+// offscreen document" error when polls from several tabs race.
+let creating;
+async function ensureOffscreen() {
+  if (await chrome.offscreen.hasDocument()) return;
+  creating ??= chrome.offscreen
+    .createDocument({
+      url: 'offscreen.html',
+      reasons: ['DOM_PARSER'],
+      justification: 'XMLHttpRequest is the only way to read file:// URLs',
+    })
+    .finally(() => (creating = undefined));
+  await creating;
+}
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.action !== 'read') return;
-  fetch(msg.url, { cache: 'no-store' })
-    .then((r) => r.text())
+  ensureOffscreen()
+    .then(() => chrome.runtime.sendMessage({ target: 'offscreen', url: msg.url }))
     .then(sendResponse)
     .catch(() => sendResponse(null));
   return true; // keep the message channel open for the async response
