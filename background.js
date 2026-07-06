@@ -18,7 +18,14 @@ async function ensureOffscreen() {
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.action !== 'read') return;
   ensureOffscreen()
-    .then(() => chrome.runtime.sendMessage({ target: 'offscreen', url: msg.url }))
+    .then(() =>
+      chrome.runtime.sendMessage({
+        target: 'offscreen',
+        url: msg.url,
+        seed: msg.seed,
+        tabId: sender.tab.id, // the offscreen page tracks last-served text per tab
+      })
+    )
     .then(sendResponse)
     .catch(() => sendResponse(null));
   return true; // keep the message channel open for the async response

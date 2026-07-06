@@ -8,9 +8,9 @@ Show local HTML files in Vivaldi from the command line, with **flicker-free live
 
 ## The extension
 
-**Live reload (no flicker).** A content script runs on every local page. It polls the file and, when it changes, swaps the page content in a single paint instead of navigating — so there is no white flash and the scroll position is kept. Edit the file and the open page updates itself; you don't re-run the script to refresh. Pages with `<script>`s get a normal (flashing) reload instead, because the swap would not re-run them.
+**Live reload (no flicker).** A content script runs on every local page. It polls the file — every second while the tab is visible, not at all while hidden, with an immediate poll on becoming visible — and when it changes, swaps the page content in a single paint instead of navigating, so there is no white flash and the scroll position is kept. Edit the file and the open page updates itself; you don't re-run the script to refresh. Pages with `<script>`s get a normal (flashing) reload instead, because the swap would not re-run them.
 
-The file is read by an offscreen extension document: content scripts and pages cannot read `file://` because their requests use the page's `file://` origin, and the service worker has no XHR and its `fetch(file://)` is unreliable. The content script messages the service worker, which relays to an offscreen document whose `chrome-extension://` origin can XHR `file://` when the extension has file access.
+The file is read by an offscreen extension document: content scripts and pages cannot read `file://` because their requests use the page's `file://` origin, and the service worker has no XHR and its `fetch(file://)` is unreliable. The content script messages the service worker, which relays to an offscreen document whose `chrome-extension://` origin can XHR `file://` when the extension has file access. The offscreen document remembers the last text served per tab and answers "unchanged" otherwise, so the full file text only crosses process boundaries on a real change — polling a large report costs almost nothing.
 
 Why not AppleScript: its `reload` does a full document reload (blank → refetch → repaint), which always flashes.
 
