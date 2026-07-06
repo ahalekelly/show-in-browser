@@ -1,0 +1,8 @@
+{
+  "manifest_version": 3,
+  "name": "Tab Mover for Claude",
+  "version": "1.0",
+  "description": "Moves an existing tab to the end of its window without reloading it. Opening <url>#claude-move-to-end in a new tab moves the tab showing <url> and closes the trigger tab.",
+  "permissions": ["tabs"],
+  "background": { "service_worker": "background.js" }
+}
