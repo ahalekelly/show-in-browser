@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "show-in-vivaldi",
+  "name": "show-in-browser",
   "version": "2.0",
   "description": "Live-reloads local HTML pages in place with no flicker, and moves a tab to the end of its window without reloading it.",
   "permissions": ["tabs", "offscreen"],

@@ -1,10 +1,10 @@
-# show-in-vivaldi
+# show-in-browser
 
-Show local HTML files in Vivaldi from the command line, with **flicker-free live reload**. Two parts: a CLI script (`show-in-vivaldi.sh`) that opens/focuses/moves tabs over AppleScript, and a Chromium extension that updates page content in place and moves tabs — the two things AppleScript can't do without a visible flash.
+Show local HTML files in a Chromium browser from the command line, with **flicker-free live reload**. Two parts: a CLI script (`show-in-browser.sh`) that opens/focuses/moves tabs over AppleScript, and a Chromium extension that updates page content in place and moves tabs — the two things AppleScript can't do without a visible flash.
 
-## show-in-vivaldi.sh
+## show-in-browser.sh
 
-`show-in-vivaldi.sh <absolute-path> [focus] [last]` opens a local HTML file in Vivaldi without duplicate tabs. If the tab is already open it leaves it alone — the extension keeps the content current on its own. `focus` brings the tab to the foreground; `last` moves it to the end of the tab strip.
+`show-in-browser.sh <absolute-path> [focus] [last]` opens a local HTML file without duplicate tabs. It targets Vivaldi by default; set `BROWSER` to another Chromium browser's application name (e.g. `BROWSER="Google Chrome"`) — they all share the AppleScript dictionary the script uses. If the tab is already open it leaves it alone — the extension keeps the content current on its own. `focus` brings the tab to the foreground; `last` moves it to the end of the tab strip.
 
 ## The extension
 
@@ -14,7 +14,7 @@ The file is read by an offscreen extension document: content scripts and pages c
 
 Why not AppleScript: its `reload` does a full document reload (blank → refetch → repaint), which always flashes.
 
-**Move to end (no reload, no flash).** Moving a tab's position doesn't reload its page, but AppleScript's `move` destroys the tab and inserts a blank one, and creating a trigger tab flashes the foreground because Vivaldi activates new tabs. So `last` instead appends `#claude-move-to-end` to the report tab's own URL — a same-document change that neither reloads the page nor changes the active tab — and the extension (`chrome.tabs.move`, the only real relocation API) moves that tab to the end and strips the fragment. This stays flicker-free even when the moved tab is in the background and you're viewing another tab.
+**Move to end (no reload, no flash).** Moving a tab's position doesn't reload its page, but AppleScript's `move` destroys the tab and inserts a blank one, and creating a trigger tab flashes the foreground because the browser activates new tabs. So `last` instead appends `#claude-move-to-end` to the report tab's own URL — a same-document change that neither reloads the page nor changes the active tab — and the extension (`chrome.tabs.move`, the only real relocation API) moves that tab to the end and strips the fragment. This stays flicker-free even when the moved tab is in the background and you're viewing another tab.
 
 ## Setup
 
