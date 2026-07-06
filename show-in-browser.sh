@@ -41,7 +41,10 @@ on run argv
     tell application "$BROWSER"
         repeat with w in windows
             repeat with t in tabs of w
-                if URL of t is theURL then
+                if URL of t is theURL or URL of t is (theURL & "#claude-move-to-end") then
+                    -- if the extension died mid-move, the fragment is left stuck
+                    -- on the URL; strip it so the set below is a real URL change
+                    if URL of t is not theURL then set URL of t to theURL
                     if wantLast then
                         -- append a fragment to the tab's own URL: a same-document
                         -- change, so no reload and no focus change. The extension
@@ -73,7 +76,7 @@ on run argv
             set tabIndex to 0
             repeat with t in tabs of w
                 set tabIndex to tabIndex + 1
-                if URL of t is theURL then
+                if URL of t is theURL or URL of t is (theURL & "#claude-move-to-end") then
                     set active tab index of w to tabIndex
                     set index of w to 1
                     activate
