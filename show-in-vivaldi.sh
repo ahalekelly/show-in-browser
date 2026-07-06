@@ -12,8 +12,8 @@
 #           change); the extension moves the tab and strips the fragment.
 #   Without focus, the user's previously selected tab stays selected.
 #
-# Live reload requires the extension loaded, "Allow access to file URLs" enabled
-# for it, and <meta name="show-in-vivaldi"> in the HTML to opt the page in.
+# Live reload requires the extension loaded and "Allow access to file URLs"
+# enabled for it.
 # AppleScript's "move" is never used here: on Vivaldi tabs it destroys the tab
 # and inserts a blank one, and tab indexes queried in the same osascript process
 # after any tab mutation are unreliable.
