@@ -13,10 +13,16 @@
 #           scroll position and history. Signalled by appending a fragment to the
 #           tab's own URL (a same-document change, so no reload and no focus
 #           change); the extension moves the tab and strips the fragment.
-#   Without focus, the user's previously selected tab stays selected.
+#   Without focus, the user's previously selected tab stays selected, and the
+#   previously frontmost app keeps focus: the browser activates itself when a
+#   tab is created via AppleScript (even `open -g` can't suppress this), so
+#   after opening a new tab the script hands focus back to the app that had it.
 #
 # Live reload requires the extension loaded and "Allow access to file URLs"
 # enabled for it.
+# Tab URLs are fetched one window at a time as a bulk list (`URL of tabs of w`),
+# one Apple event per window; asking each tab individually takes tens of
+# seconds on a session with many tabs.
 # AppleScript's "move" is never used here: on Vivaldi tabs it destroys the tab
 # and inserts a blank one, and tab indexes queried in the same osascript process
 # after any tab mutation are unreliable.
@@ -34,22 +40,30 @@ for opt in "$@"; do
     esac
 done
 
-osascript - "$FILE_URL" "$LAST" <<EOF
+PREV_APP=$(osascript -e 'tell application "System Events" to get name of first process whose frontmost is true')
+
+# bash 3.2 misparses a heredoc placed directly inside $(...), so the osascript
+# call lives in a function
+find_or_open() {
+    osascript - "$FILE_URL" "$LAST" <<EOF
 on run argv
     set theURL to item 1 of argv
     set wantLast to item 2 of argv is "true"
+    set markerURL to theURL & "#claude-move-to-end"
     tell application "$BROWSER"
         repeat with w in windows
-            repeat with t in tabs of w
-                if URL of t is theURL or URL of t is (theURL & "#claude-move-to-end") then
+            set urlList to URL of tabs of w
+            repeat with i from 1 to count of urlList
+                set u to item i of urlList
+                if u is theURL or u is markerURL then
                     -- if the extension died mid-move, the fragment is left stuck
                     -- on the URL; strip it so the set below is a real URL change
-                    if URL of t is not theURL then set URL of t to theURL
+                    if u is markerURL then set URL of (tab i of w) to theURL
                     if wantLast then
                         -- append a fragment to the tab's own URL: a same-document
                         -- change, so no reload and no focus change. The extension
                         -- moves this tab to the end and strips the fragment.
-                        set URL of t to (theURL & "#claude-move-to-end")
+                        set URL of (tab i of w) to markerURL
                         return "moving tab to end"
                     end if
                     return "already open"
@@ -64,6 +78,16 @@ on run argv
     end tell
 end run
 EOF
+}
+RESULT=$(find_or_open)
+echo "$RESULT"
+
+if [ "$RESULT" = "opened new tab" ] && ! $FOCUS; then
+    # the browser is about to activate itself because of the new tab; wait for
+    # that activation to land, then hand focus back
+    sleep 0.5
+    osascript -e "tell application \"System Events\" to set frontmost of process \"$PREV_APP\" to true"
+fi
 
 if $FOCUS; then
     # let the tab strip settle, then locate the tab fresh and bring it forward
@@ -73,11 +97,11 @@ on run argv
     set theURL to item 1 of argv
     tell application "$BROWSER"
         repeat with w in windows
-            set tabIndex to 0
-            repeat with t in tabs of w
-                set tabIndex to tabIndex + 1
-                if URL of t is theURL or URL of t is (theURL & "#claude-move-to-end") then
-                    set active tab index of w to tabIndex
+            set urlList to URL of tabs of w
+            repeat with i from 1 to count of urlList
+                set u to item i of urlList
+                if u is theURL or u is (theURL & "#claude-move-to-end") then
+                    set active tab index of w to i
                     set index of w to 1
                     activate
                     return
