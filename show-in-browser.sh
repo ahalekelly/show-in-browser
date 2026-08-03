@@ -1,12 +1,19 @@
 #!/bin/bash
 # Show a local HTML file in a Chromium browser without duplicate tabs.
-# Usage: [BROWSER=<app name>] show-in-browser.sh <absolute-path> [focus] [last]
-#   BROWSER is the browser's macOS application name (default "Vivaldi", e.g.
-#   BROWSER="Google Chrome"). Any Chromium browser works: they share the
+# Usage: [BROWSER_APP=<app name>] show-in-browser.sh <absolute-path> [focus] [last]
+#   BROWSER_APP is the browser's macOS application name (default "Vivaldi", e.g.
+#   BROWSER_APP="Google Chrome"). Any Chromium browser works: they share the
 #   AppleScript dictionary this script uses, and the extension is plain MV3.
-#   If a tab already has this URL, leave it in place: the extension's live-reload
-#   content script updates the page content on its own when the file changes,
-#   with no flicker and no re-running of this script.
+#   Deliberately not the standard BROWSER variable: that one holds a command
+#   (agent/CI environments export BROWSER=true to suppress URL-opening), and
+#   inheriting it here compiles `tell application "true"`, which fails with an
+#   AppleScript syntax error because that "app" has no scripting dictionary.
+#   If a tab already shows this file, leave it in place: the extension's
+#   live-reload content script updates the page content on its own when the file
+#   changes, with no flicker and no re-running of this script. Matching ignores
+#   any URL fragment, because pages set their own (e.g. "#loaded", or hash-based
+#   app state) and an exact comparison would open a duplicate tab; the file URL
+#   itself never contains "#" (the path is percent-encoded).
 #   Otherwise open a new tab (new tabs always land at the end of the tab strip).
 #   focus - bring the tab, its window, and the browser to the foreground.
 #   last  - move an already-open tab to the end of the tab strip, keeping its
@@ -27,7 +34,7 @@
 # and inserts a blank one, and tab indexes queried in the same osascript process
 # after any tab mutation are unreliable.
 set -euo pipefail
-BROWSER="${BROWSER:-Vivaldi}"
+BROWSER_APP="${BROWSER_APP:-Vivaldi}"
 FILE_URL="file://$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))" "$1")"
 shift
 FOCUS=false
@@ -50,14 +57,15 @@ on run argv
     set theURL to item 1 of argv
     set wantLast to item 2 of argv is "true"
     set markerURL to theURL & "#claude-move-to-end"
-    tell application "$BROWSER"
+    tell application "$BROWSER_APP"
         repeat with w in windows
             set urlList to URL of tabs of w
             repeat with i from 1 to count of urlList
                 set u to item i of urlList
-                if u is theURL or u is markerURL then
-                    -- if the extension died mid-move, the fragment is left stuck
-                    -- on the URL; strip it so the set below is a real URL change
+                if u is theURL or u starts with (theURL & "#") then
+                    -- if the tab already carries the marker fragment (the
+                    -- extension died mid-move), reset to the bare URL first so
+                    -- the set below is a real URL change
                     if u is markerURL then set URL of (tab i of w) to theURL
                     if wantLast then
                         -- append a fragment to the tab's own URL: a same-document
@@ -95,12 +103,12 @@ if $FOCUS; then
     osascript - "$FILE_URL" <<EOF
 on run argv
     set theURL to item 1 of argv
-    tell application "$BROWSER"
+    tell application "$BROWSER_APP"
         repeat with w in windows
             set urlList to URL of tabs of w
             repeat with i from 1 to count of urlList
                 set u to item i of urlList
-                if u is theURL or u is (theURL & "#claude-move-to-end") then
+                if u is theURL or u starts with (theURL & "#") then
                     set active tab index of w to i
                     set index of w to 1
                     activate
