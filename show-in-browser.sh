@@ -10,7 +10,10 @@
 #   AppleScript to a nonexistent application "true".
 #   If a tab already has this URL, leave it in place: the extension's live-reload
 #   content script updates the page content on its own when the file changes,
-#   with no flicker and no re-running of this script.
+#   with no flicker and no re-running of this script. Matching ignores any URL
+#   fragment, because pages set their own (e.g. "#loaded", or hash-based app
+#   state) and an exact comparison would open a duplicate tab; the URL the
+#   script builds never contains "#" (the path is percent-encoded).
 #   Otherwise open a new tab (new tabs always land at the end of the tab strip).
 #   focus - bring the tab, its window, and the browser to the foreground.
 #   last  - move an already-open tab to the end of the tab strip, keeping its
@@ -111,9 +114,10 @@ on run argv
             set urlList to URL of tabs of w
             repeat with i from 1 to count of urlList
                 set u to item i of urlList
-                if u is theURL or u is markerURL then
-                    -- if the extension died mid-move, the fragment is left stuck
-                    -- on the URL; strip it so the set below is a real URL change
+                if u is theURL or u starts with (theURL & "#") then
+                    -- if the tab already carries the marker fragment (the
+                    -- extension died mid-move), reset to the bare URL first so
+                    -- the set below is a real URL change
                     if u is markerURL then set URL of (tab i of w) to theURL
                     if wantLast then
                         -- append a fragment to the tab's own URL: a same-document
@@ -156,7 +160,7 @@ on run argv
             set urlList to URL of tabs of w
             repeat with i from 1 to count of urlList
                 set u to item i of urlList
-                if u is theURL or u is (theURL & "#claude-move-to-end") then
+                if u is theURL or u starts with (theURL & "#") then
                     set active tab index of w to i
                     set index of w to 1
                     activate
