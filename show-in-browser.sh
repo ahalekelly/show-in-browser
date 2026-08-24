@@ -1,6 +1,6 @@
 #!/bin/bash
-# Show a local HTML file in a Chromium browser without duplicate tabs.
-# Usage: [BROWSER=<app name>] show-in-browser.sh <absolute-path> [focus] [last]
+# Show an HTML file in a Chromium browser without duplicate tabs.
+# Usage: [BROWSER=<app name>] show-in-browser.sh <absolute-path-or-url> [focus] [last]
 #   BROWSER is the browser's macOS application name (default "Vivaldi", e.g.
 #   BROWSER="Google Chrome"). Any Chromium browser works: they share the
 #   AppleScript dictionary this script uses, and the extension is plain MV3.
@@ -18,8 +18,8 @@
 #   tab is created via AppleScript (even `open -g` can't suppress this), so
 #   after opening a new tab the script hands focus back to the app that had it.
 #
-# Live reload requires the extension loaded and "Allow access to file URLs"
-# enabled for it.
+# Live reload of file URLs requires the extension loaded and "Allow access to
+# file URLs" enabled for it.
 # Tab URLs are fetched one window at a time as a bulk list (`URL of tabs of w`),
 # one Apple event per window; asking each tab individually takes tens of
 # seconds on a session with many tabs.
@@ -28,8 +28,55 @@
 # after any tab mutation are unreliable.
 set -euo pipefail
 BROWSER="${BROWSER:-Vivaldi}"
-FILE_URL="file://$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))" "$1")"
+INPUT=$1
+case "$INPUT" in
+    http://*|https://*) FILE_URL=$INPUT; IS_PATH=false ;;
+    *)
+        ENCODED_PATH=$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))" "$INPUT")
+        FILE_URL="file://$ENCODED_PATH"
+        IS_PATH=true
+        ;;
+esac
 shift
+
+if [ "$(uname -s)" != "Darwin" ]; then
+    HOST_FILE="$HOME/.config/show-in-browser/host"
+    if [ ! -f "$HOST_FILE" ]; then
+        echo "Missing $HOST_FILE. Create it with one line containing your Mac's tailnet hostname (for example, macbook.ts.net); macOS Remote Login must be enabled." >&2
+        exit 1
+    fi
+    MACHOST=$(<"$HOST_FILE")
+
+    if $IS_PATH; then
+        IDENTITY=$(tailscale status --json | python3 -c 'import json, sys; s=json.load(sys.stdin)["Self"]; print(s["DNSName"].rstrip(".")); print(s["TailscaleIPs"][0])')
+        TAILSCALE_DNS=${IDENTITY%%$'\n'*}
+        TAILSCALE_IP=${IDENTITY#*$'\n'}
+        FILE_URL="http://$TAILSCALE_DNS:8377$ENCODED_PATH"
+        HEALTH_URL="http://$TAILSCALE_IP:8377/"
+
+        if ! curl -sf -o /dev/null --max-time 2 "$HEALTH_URL"; then
+            CONFIG_DIR="$HOME/.config/show-in-browser"
+            mkdir -p "$CONFIG_DIR"
+            SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+            setsid nohup python3 "$SCRIPT_DIR/serve.py" "$TAILSCALE_IP" 8377 >>"$CONFIG_DIR/serve.log" 2>&1 </dev/null &
+            SERVER_READY=false
+            for _ in 1 2 3 4 5 6 7 8 9 10; do
+                if curl -sf -o /dev/null --max-time 2 "$HEALTH_URL"; then
+                    SERVER_READY=true
+                    break
+                fi
+                sleep 0.2
+            done
+            if ! $SERVER_READY; then
+                echo "Failed to start the tailnet file server; see $CONFIG_DIR/serve.log" >&2
+                exit 1
+            fi
+        fi
+    fi
+
+    exec ssh -o BatchMode=yes "$MACHOST" '~/Git/show-in-browser/show-in-browser.sh' "$FILE_URL" "$@"
+fi
+
 FOCUS=false
 LAST=false
 for opt in "$@"; do

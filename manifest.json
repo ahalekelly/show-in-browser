@@ -7,7 +7,14 @@
   "background": { "service_worker": "background.js" },
   "content_scripts": [
     {
-      "matches": ["file:///*.html", "file:///*.htm", "file:///*.xhtml"],
+      "matches": [
+        "file:///*.html",
+        "file:///*.htm",
+        "file:///*.xhtml",
+        "http://*.ts.net/*.html",
+        "http://*.ts.net/*.htm",
+        "http://*.ts.net/*.xhtml"
+      ],
       "js": ["livereload.js"],
       "run_at": "document_idle"
     }

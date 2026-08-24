@@ -1,14 +1,18 @@
 # show-in-browser
 
-Show local HTML files in a Chromium browser from the command line, with **flicker-free live reload**. Two parts: a CLI script (`show-in-browser.sh`) that opens/focuses/moves tabs over AppleScript, and a Chromium extension that updates page content in place and moves tabs — the two things AppleScript can't do without a visible flash.
+Show HTML files in a Mac Chromium browser from the local command line or a headless Linux box, with **flicker-free live reload**. Two parts: a CLI script (`show-in-browser.sh`) that opens/focuses/moves tabs over AppleScript, and a Chromium extension that updates page content in place and moves tabs — the two things AppleScript can't do without a visible flash.
 
 ## show-in-browser.sh
 
 `show-in-browser.sh <absolute-path> [focus] [last]` opens a local HTML file without duplicate tabs. It targets Vivaldi by default; set `BROWSER` to another Chromium browser's application name (e.g. `BROWSER="Google Chrome"`) — they all share the AppleScript dictionary the script uses. If the tab is already open it leaves it alone — the extension keeps the content current on its own. `focus` brings the tab to the foreground; `last` moves it to the end of the tab strip. Without `focus` the browser never keeps focus: Chromium activates itself when AppleScript creates a tab (even `open -g` can't suppress it), so after opening a new tab the script hands focus back to the app that had it — expect a sub-second flash of the browser on first open, and no focus change at all on later runs.
 
+## Remote mode (headless Linux → Mac)
+
+On a Linux box in the same tailnet, the same `show-in-browser.sh <absolute-path> [focus] [last]` command serves the file and opens its tailnet URL in the Mac's browser. Put the Mac's tailnet hostname on one line in `~/.config/show-in-browser/host`, enable **Remote Login** on the Mac, and configure key-based SSH access. The server binds only to the Linux box's Tailscale IP. The extension injects only into matching `http://*.ts.net/*.html`, `.htm`, and `.xhtml` pages, leaving the wider web untouched.
+
 ## The extension
 
-**Live reload (no flicker).** A content script runs on every local page. It polls the file — every second while the tab is visible, not at all while hidden, with an immediate poll on becoming visible — and when it changes, swaps the page content in a single paint instead of navigating, so there is no white flash and the scroll position is kept. Edit the file and the open page updates itself; you don't re-run the script to refresh. Pages with `<script>`s get a normal (flashing) reload instead, because the swap would not re-run them.
+**Live reload (no flicker).** A content script runs on every matched local or tailnet page. It polls the file — every second while the tab is visible, not at all while hidden, with an immediate poll on becoming visible — and when it changes, swaps the page content in a single paint instead of navigating, so there is no white flash and the scroll position is kept. Edit the file and the open page updates itself; you don't re-run the script to refresh. Pages with `<script>`s get a normal (flashing) reload instead, because the swap would not re-run them.
 
 The file is read by an offscreen extension document: content scripts and pages cannot read `file://` because their requests use the page's `file://` origin, and the service worker has no XHR and its `fetch(file://)` is unreliable. The content script messages the service worker, which relays to an offscreen document whose `chrome-extension://` origin can XHR `file://` when the extension has file access. The offscreen document remembers the last text served per tab and answers "unchanged" otherwise, so the full file text only crosses process boundaries on a real change — polling a large report costs almost nothing.
 
@@ -23,4 +27,4 @@ Why not AppleScript: its `reload` does a full document reload (blank → refetch
 3. **Load unpacked** → select this directory
 4. Open the extension's details and enable **Allow access to file URLs** (required for live reload of `file://` pages)
 
-All local `.html`/`.htm`/`.xhtml` pages are live-reloaded. Other file types are left alone: non-HTML files render through browser-generated wrapper documents the swap would clobber, and `.md` has a dedicated markdown extension.
+All local and matched tailnet `.html`/`.htm`/`.xhtml` pages are live-reloaded. Other file types are left alone: non-HTML files render through browser-generated wrapper documents the swap would clobber, and `.md` has a dedicated markdown extension.
