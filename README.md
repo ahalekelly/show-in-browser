@@ -8,7 +8,7 @@ Show HTML files in a Mac Chromium browser from the local command line or a headl
 
 ## Remote mode (headless Linux → Mac)
 
-On a Linux box in the same tailnet, the same `show-in-browser.sh <absolute-path> [focus] [last]` command serves the file and opens its tailnet URL in the Mac's browser. Put the Mac's tailnet hostname on one line in `~/.config/show-in-browser/host`, enable **Remote Login** on the Mac, and configure key-based SSH access. The server binds only to the Linux box's Tailscale IP. The extension injects only into matching `http://*.ts.net/*.html`, `.htm`, and `.xhtml` pages, leaving the wider web untouched.
+On a Linux box in the same tailnet, the same `show-in-browser.sh <absolute-path> [focus] [last]` command serves the file and opens its tailnet URL in the Mac's browser. Put the Mac's tailnet hostname on one line in `~/.config/show-in-browser/host`, enable **Remote Login** on the Mac, and configure key-based SSH access. The server binds only to the Linux box's Tailscale IP and gzips text responses, which cuts a multi-megabyte report to about a fifth over the wire. The extension injects only into matching `http://*.ts.net/*.html`, `.htm`, and `.xhtml` pages, leaving the wider web untouched.
 
 ## The extension
 
