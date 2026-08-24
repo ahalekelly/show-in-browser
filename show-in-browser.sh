@@ -1,9 +1,13 @@
 #!/bin/bash
 # Show an HTML file in a Chromium browser without duplicate tabs.
-# Usage: [BROWSER=<app name>] show-in-browser.sh <absolute-path-or-url> [focus] [last]
-#   BROWSER is the browser's macOS application name (default "Vivaldi", e.g.
-#   BROWSER="Google Chrome"). Any Chromium browser works: they share the
-#   AppleScript dictionary this script uses, and the extension is plain MV3.
+# Usage: [BROWSER_APP=<app name>] show-in-browser.sh <absolute-path-or-url> [focus] [last]
+#   BROWSER_APP is the browser's macOS application name (default "Vivaldi",
+#   e.g. BROWSER_APP="Google Chrome"). Any Chromium browser works: they share
+#   the AppleScript dictionary this script uses, and the extension is plain
+#   MV3. The conventional BROWSER variable is deliberately not used: it holds
+#   a URL-opener *command*, not an app name, and agent harnesses export
+#   BROWSER=true to suppress browser launches, which would send the
+#   AppleScript to a nonexistent application "true".
 #   If a tab already has this URL, leave it in place: the extension's live-reload
 #   content script updates the page content on its own when the file changes,
 #   with no flicker and no re-running of this script.
@@ -27,7 +31,6 @@
 # and inserts a blank one, and tab indexes queried in the same osascript process
 # after any tab mutation are unreliable.
 set -euo pipefail
-BROWSER="${BROWSER:-Vivaldi}"
 INPUT=$1
 case "$INPUT" in
     http://*|https://*) FILE_URL=$INPUT; IS_PATH=false ;;
@@ -77,6 +80,12 @@ if [ "$(uname -s)" != "Darwin" ]; then
     exec ssh -o BatchMode=yes "$MACHOST" '~/Git/show-in-browser/show-in-browser.sh' "$FILE_URL" "$@"
 fi
 
+BROWSER_APP="${BROWSER_APP:-Vivaldi}"
+# resolve the app now: compiling `tell application` against a missing app
+# reports an inscrutable parse error deep in the script instead of this
+osascript -e "id of application \"$BROWSER_APP\"" >/dev/null 2>&1 ||
+    { echo "no macOS application named \"$BROWSER_APP\"; set BROWSER_APP to a Chromium browser's app name" >&2; exit 1; }
+
 FOCUS=false
 LAST=false
 for opt in "$@"; do
@@ -97,7 +106,7 @@ on run argv
     set theURL to item 1 of argv
     set wantLast to item 2 of argv is "true"
     set markerURL to theURL & "#claude-move-to-end"
-    tell application "$BROWSER"
+    tell application "$BROWSER_APP"
         repeat with w in windows
             set urlList to URL of tabs of w
             repeat with i from 1 to count of urlList
@@ -142,7 +151,7 @@ if $FOCUS; then
     osascript - "$FILE_URL" <<EOF
 on run argv
     set theURL to item 1 of argv
-    tell application "$BROWSER"
+    tell application "$BROWSER_APP"
         repeat with w in windows
             set urlList to URL of tabs of w
             repeat with i from 1 to count of urlList
