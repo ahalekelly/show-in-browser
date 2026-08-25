@@ -60,6 +60,15 @@
     document.head.innerHTML = next.head.innerHTML;
     document.body.innerHTML = next.body.innerHTML;
     scrollTo(x, y);
+    ensureTitle();
+  }
+
+  // A page without <title> shows its URL in the tab strip; use the first
+  // heading, or the file name when there is none.
+  function ensureTitle() {
+    if (document.title) return;
+    const h1 = document.querySelector('h1');
+    document.title = h1?.textContent.trim() || decodeURIComponent(url.split('/').pop());
   }
 
   function reschedule() {
@@ -73,5 +82,6 @@
   });
 
   read(true); // record the file as rendered
+  ensureTitle();
   reschedule();
 })();
