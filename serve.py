@@ -20,6 +20,12 @@ cache = {}
 
 
 class GzipHandler(SimpleHTTPRequestHandler):
+    # Without a charset the browser decodes text as Windows-1252, and unlike
+    # HTML, Markdown has no <meta charset> to override that.
+    def guess_type(self, path):
+        ctype = super().guess_type(path)
+        return ctype + "; charset=utf-8" if ctype.startswith("text/") else ctype
+
     def send_head(self):
         path = self.translate_path(self.path)
         ctype = self.guess_type(path)
