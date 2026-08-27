@@ -1,5 +1,5 @@
 #!/bin/bash
-# Show an HTML file in a Chromium browser without duplicate tabs.
+# Show a local file in a Chromium browser without duplicate tabs.
 # Usage: [BROWSER_APP=<app name>] show-in-browser.sh <absolute-path-or-url> [focus] [last]
 #   BROWSER_APP is the browser's macOS application name (default "Vivaldi",
 #   e.g. BROWSER_APP="Google Chrome"). Any Chromium browser works: they share
@@ -54,6 +54,9 @@ if [ "$(uname -s)" != "Darwin" ]; then
     MACHOST=$(<"$HOST_FILE")
 
     if $IS_PATH; then
+        SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+        INPUT=$(python3 "$SCRIPT_DIR/serve.py" allow "$INPUT")
+        ENCODED_PATH=$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))" "$INPUT")
         IDENTITY=$(tailscale status --json | python3 -c 'import json, sys; s=json.load(sys.stdin)["Self"]; print(s["DNSName"].rstrip(".")); print(s["TailscaleIPs"][0])')
         TAILSCALE_DNS=${IDENTITY%%$'\n'*}
         TAILSCALE_IP=${IDENTITY#*$'\n'}
@@ -61,10 +64,7 @@ if [ "$(uname -s)" != "Darwin" ]; then
         HEALTH_URL="http://$TAILSCALE_IP:8377/"
 
         if ! curl -sf -o /dev/null --max-time 2 "$HEALTH_URL"; then
-            CONFIG_DIR="$HOME/.config/show-in-browser"
-            mkdir -p "$CONFIG_DIR"
-            SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-            setsid nohup python3 "$SCRIPT_DIR/serve.py" "$TAILSCALE_IP" 8377 >>"$CONFIG_DIR/serve.log" 2>&1 </dev/null &
+            systemctl --user start show-in-browser.service
             SERVER_READY=false
             for _ in 1 2 3 4 5 6 7 8 9 10; do
                 if curl -sf -o /dev/null --max-time 2 "$HEALTH_URL"; then
@@ -74,7 +74,7 @@ if [ "$(uname -s)" != "Darwin" ]; then
                 sleep 0.2
             done
             if ! $SERVER_READY; then
-                echo "Failed to start the tailnet file server; see $CONFIG_DIR/serve.log" >&2
+                echo "Failed to start show-in-browser.service; inspect it with: systemctl --user status show-in-browser.service" >&2
                 exit 1
             fi
         fi

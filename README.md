@@ -1,14 +1,24 @@
 # show-in-browser
 
-Show HTML files in a Mac Chromium browser from the local command line or a headless Linux box, with **flicker-free live reload**. Two parts: a CLI script (`show-in-browser.sh`) that opens/focuses/moves tabs over AppleScript, and a Chromium extension that updates page content in place and moves tabs — the two things AppleScript can't do without a visible flash.
+Show local files in a Mac Chromium browser from the command line or a headless Linux box, with **flicker-free live reload for HTML**. Two parts: a CLI script (`show-in-browser.sh`) that opens/focuses/moves tabs over AppleScript, and a Chromium extension that updates page content in place and moves tabs — the two things AppleScript can't do without a visible flash.
 
 ## show-in-browser.sh
 
-`show-in-browser.sh <absolute-path> [focus] [last]` opens a local HTML file without duplicate tabs. It targets Vivaldi by default; set `BROWSER_APP` to another Chromium browser's application name (e.g. `BROWSER_APP="Google Chrome"`) — they all share the AppleScript dictionary the script uses. (Not `BROWSER`: that conventional variable holds a URL-opener command, and agent harnesses export `BROWSER=true`, which is no app name at all.) If the tab is already open it leaves it alone — the extension keeps the content current on its own. `focus` brings the tab to the foreground; `last` moves it to the end of the tab strip. Without `focus` the browser never keeps focus: Chromium activates itself when AppleScript creates a tab (even `open -g` can't suppress it), so after opening a new tab the script hands focus back to the app that had it — expect a sub-second flash of the browser on first open, and no focus change at all on later runs.
+`show-in-browser.sh <absolute-path> [focus] [last]` opens a local file without duplicate tabs. It targets Vivaldi by default; set `BROWSER_APP` to another Chromium browser's application name (e.g. `BROWSER_APP="Google Chrome"`) — they all share the AppleScript dictionary the script uses. (Not `BROWSER`: that conventional variable holds a URL-opener command, and agent harnesses export `BROWSER=true`, which is no app name at all.) If the tab is already open it leaves it alone — the extension keeps HTML content current on its own. `focus` brings the tab to the foreground; `last` moves it to the end of the tab strip. Without `focus` the browser never keeps focus: Chromium activates itself when AppleScript creates a tab (even `open -g` can't suppress it), so after opening a new tab the script hands focus back to the app that had it — expect a sub-second flash of the browser on first open, and no focus change at all on later runs.
 
 ## Remote mode (headless Linux → Mac)
 
-On a Linux box in the same tailnet, the same `show-in-browser.sh <absolute-path> [focus] [last]` command serves the file and opens its tailnet URL in the Mac's browser. Put the Mac's tailnet hostname on one line in `~/.config/show-in-browser/host`, enable **Remote Login** on the Mac, and configure key-based SSH access. The server binds only to the Linux box's Tailscale IP and gzips text responses, which cuts a multi-megabyte report to about a fifth over the wire. The extension injects only into matching `http://*.ts.net/*.html`, `.htm`, and `.xhtml` pages, leaving the wider web untouched.
+On a Linux box in the same tailnet, the same `show-in-browser.sh <absolute-path> [focus] [last]` command opens the file's tailnet URL in the Mac's browser. Put the Mac's tailnet hostname on one line in `~/.config/show-in-browser/host`, enable **Remote Login** on the Mac, and configure key-based SSH access.
+
+Install the user service and enable lingering so the server starts at boot:
+
+```sh
+systemctl --user link "$HOME/Git/show-in-browser/systemd/show-in-browser.service"
+systemctl --user enable --now show-in-browser.service
+loginctl enable-linger "$USER"
+```
+
+The server binds only to the Linux box's Tailscale IP. It serves `.html`, `.htm`, `.xhtml`, and `.md` files under the user's home directory by default and rejects other paths. Passing another regular file to `show-in-browser.sh` authorizes that file until reboot. Text responses are gzipped. The extension injects only into matching `http://*.ts.net/*.html`, `.htm`, and `.xhtml` pages, leaving other formats to the browser.
 
 ## The extension
 

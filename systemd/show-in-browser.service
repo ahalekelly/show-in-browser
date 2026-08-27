@@ -1,0 +1,13 @@
+[Unit]
+Description=Serve home-directory reports over Tailscale
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/python3 %h/Git/show-in-browser/serve.py
+Restart=on-failure
+RestartSec=5s
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
