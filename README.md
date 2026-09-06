@@ -18,7 +18,7 @@ systemctl --user enable --now show-in-browser.service
 loginctl enable-linger "$USER"
 ```
 
-The server binds only to the Linux box's Tailscale IP. It serves `.html`, `.htm`, `.xhtml`, and `.md` files under the user's home directory by default and rejects other paths. Passing another regular file to `show-in-browser.sh` authorizes that file until reboot. Text responses are gzipped. The extension injects only into matching `http://*.ts.net/*.html`, `.htm`, and `.xhtml` pages, leaving other formats to the browser.
+The server binds only to the Linux box's Tailscale IP. It serves HTML, Markdown, and PDF documents under the user's home directory by default, plus the assets pages reference: CSS, JavaScript, JSON, XML, WebAssembly, web manifests, fonts, images, audio, and video (the full suffix list is `SERVABLE_SUFFIXES` in `serve.py`). Other paths are rejected. Passing another regular file to `show-in-browser.sh` authorizes that file until reboot. Text responses are gzipped. The extension injects only into matching `http://*.ts.net/*.html`, `.htm`, and `.xhtml` pages, leaving other formats to the browser.
 
 ## The extension
 

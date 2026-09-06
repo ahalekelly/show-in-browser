@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Serve HTML and Markdown files from the user's home over the tailnet."""
+"""Serve web pages, their assets, and media files from the user's home over the tailnet."""
 
 import functools
 import gzip
@@ -15,8 +15,17 @@ from urllib.parse import urlsplit
 
 
 COMPRESSIBLE = ("text/", "application/javascript", "application/json",
-                "application/xhtml+xml", "image/svg+xml")
-SERVABLE_SUFFIXES = {".html", ".htm", ".xhtml", ".md"}
+                "application/xhtml+xml", "application/xml", "application/wasm",
+                "application/manifest+json", "image/svg+xml")
+# Documents plus everything a page references: scripts, styles, data, fonts,
+# images, audio, and video. Other data files need an explicit allow.
+SERVABLE_SUFFIXES = {
+    ".html", ".htm", ".xhtml", ".md", ".pdf",
+    ".css", ".js", ".mjs", ".json", ".xml", ".wasm", ".webmanifest",
+    ".woff", ".woff2", ".ttf", ".otf",
+    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".svg", ".ico",
+    ".mp3", ".m4a", ".wav", ".ogg", ".mp4", ".webm",
+}
 PORT = 8377
 
 # Reports run to tens of megabytes of HTML that gzip to a fifth of that, and

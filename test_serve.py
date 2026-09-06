@@ -53,6 +53,21 @@ class TailnetFileHandlerTest(unittest.TestCase):
             with urlopen(self.url(path)) as response:
                 self.assertEqual(response.read().decode(), name)
 
+    def test_serves_page_assets_and_media(self):
+        for name, ctype in (
+            ("style.css", "text/css; charset=utf-8"),
+            ("app.js", "text/javascript; charset=utf-8"),
+            ("data.json", "application/json"),
+            ("font.woff2", "font/woff2"),
+            ("photo.jpg", "image/jpeg"),
+            ("clip.mp4", "video/mp4"),
+        ):
+            path = Path(self.home.name, name)
+            path.write_bytes(b"\x00\xff")
+            with urlopen(self.url(path)) as response:
+                self.assertEqual(response.headers["Content-Type"], ctype)
+                self.assertEqual(response.read(), b"\x00\xff")
+
     def test_gzips_text(self):
         path = Path(self.home.name, "report.html")
         path.write_text("report")
