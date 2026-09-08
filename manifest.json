@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "show-in-browser",
-  "version": "2.0",
+  "version": "2.1",
   "description": "Live-reloads local HTML pages in place with no flicker, and moves a tab to the end of its window without reloading it.",
   "permissions": ["tabs", "offscreen"],
   "background": { "service_worker": "background.js" },
@@ -11,6 +11,9 @@
         "file:///*.html",
         "file:///*.htm",
         "file:///*.xhtml",
+        "http://*.local/*.html",
+        "http://*.local/*.htm",
+        "http://*.local/*.xhtml",
         "http://*.ts.net/*.html",
         "http://*.ts.net/*.htm",
         "http://*.ts.net/*.xhtml"

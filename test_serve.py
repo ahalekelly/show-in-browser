@@ -9,15 +9,15 @@ from urllib.error import HTTPError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
-from serve import TailnetFileHandler, allow_file
+from serve import FileHandler, allow_file
 
 
-class TailnetFileHandlerTest(unittest.TestCase):
+class FileHandlerTest(unittest.TestCase):
     def setUp(self):
         self.home = tempfile.TemporaryDirectory()
         self.allowed_files = Path(self.home.name, "allowed-files")
         handler = functools.partial(
-            TailnetFileHandler,
+            FileHandler,
             directory="/",
             home_root=Path(self.home.name).resolve(),
             allowed_files_dir=self.allowed_files,

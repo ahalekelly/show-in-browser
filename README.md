@@ -8,7 +8,16 @@ Show local files in a Mac Chromium browser from the command line or a headless L
 
 ## Remote mode (headless Linux → Mac)
 
-On a Linux box in the same tailnet, the same `show-in-browser.sh <absolute-path> [focus] [last]` command opens the file's tailnet URL in the Mac's browser. Put the Mac's tailnet hostname on one line in `~/.config/show-in-browser/host`, enable **Remote Login** on the Mac, and configure key-based SSH access.
+The Linux command tries the local network first, then Tailscale. It verifies the Mac's SSH host key and checks that the Mac can reach the file server before opening the URL. Local connections use `.local` hostnames and work without Tailscale.
+
+Put the Mac's local and tailnet hostnames, in that order, in `~/.config/show-in-browser/host`:
+
+```text
+Mac.local
+adrians-macbook-air.troodon-bigeye.ts.net
+```
+
+Enable **Remote Login** on the Mac and configure key-based SSH access. Both routes use the tailnet hostname's first label (`adrians-macbook-air` above) as the SSH host-key alias; verify and trust that key before use. Local hostnames must resolve on both machines.
 
 Install the user service and enable lingering so the server starts at boot:
 
@@ -18,11 +27,11 @@ systemctl --user enable --now show-in-browser.service
 loginctl enable-linger "$USER"
 ```
 
-The server binds only to the Linux box's Tailscale IP. It serves HTML, Markdown, and PDF documents under the user's home directory by default, plus the assets pages reference: CSS, JavaScript, JSON, XML, WebAssembly, web manifests, fonts, images, audio, and video (the full suffix list is `SERVABLE_SUFFIXES` in `serve.py`). Other paths are rejected. Passing another regular file to `show-in-browser.sh` authorizes that file until reboot. Text responses are gzipped. The extension injects only into matching `http://*.ts.net/*.html`, `.htm`, and `.xhtml` pages, leaving other formats to the browser.
+The server binds to loopback, the default-route interface's private IPv4 addresses, and Tailscale's IPv4 address when present. It rejects public LAN addresses and excludes other interfaces. Restart the service after interface addresses change. Run it only on the trusted desktop network: HTTP is unauthenticated, so devices that can reach port 8377 can read served files. The Mac remains a client; this service is not installed there. It serves HTML, Markdown, and PDF documents under the user's home directory by default, plus the assets pages reference: CSS, JavaScript, JSON, XML, WebAssembly, web manifests, fonts, images, audio, and video (the full suffix list is `SERVABLE_SUFFIXES` in `serve.py`). Other paths are rejected. Passing another regular file to `show-in-browser.sh` authorizes that file until reboot. Text responses are gzipped. The extension injects only into matching `.local` and `.ts.net` HTTP `.html`, `.htm`, and `.xhtml` pages, leaving other formats to the browser.
 
 ## The extension
 
-**Live reload (no flicker).** A content script runs on every matched local or tailnet page. It polls the file — every second while the tab is visible, not at all while hidden, with an immediate poll on becoming visible — and when it changes, swaps the page content in a single paint instead of navigating, so there is no white flash and the scroll position is kept. Edit the file and the open page updates itself; you don't re-run the script to refresh. Pages with `<script>`s get a normal (flashing) reload instead, because the swap would not re-run them. A page without a `<title>` gets one from its first `<h1>`, or its file name, so the tab shows a name instead of the address.
+**Live reload (no flicker).** A content script runs on every matched file, local-network, or tailnet page. It polls the file — every second while the tab is visible, not at all while hidden, with an immediate poll on becoming visible — and when it changes, swaps the page content in a single paint instead of navigating, so there is no white flash and the scroll position is kept. Edit the file and the open page updates itself; you don't re-run the script to refresh. Pages with `<script>`s get a normal (flashing) reload instead, because the swap would not re-run them. A page without a `<title>` gets one from its first `<h1>`, or its file name, so the tab shows a name instead of the address.
 
 The file is read by an offscreen extension document: content scripts and pages cannot read `file://` because their requests use the page's `file://` origin, and the service worker has no XHR and its `fetch(file://)` is unreliable. The content script messages the service worker, which relays to an offscreen document whose `chrome-extension://` origin can XHR `file://` when the extension has file access. The offscreen document remembers the last text served per tab and answers "unchanged" otherwise, so the full file text only crosses process boundaries on a real change — polling a large report costs almost nothing.
 
@@ -37,4 +46,6 @@ Why not AppleScript: its `reload` does a full document reload (blank → refetch
 3. **Load unpacked** → select this directory
 4. Open the extension's details and enable **Allow access to file URLs** (required for live reload of `file://` pages)
 
-All local and matched tailnet `.html`/`.htm`/`.xhtml` pages are live-reloaded. Other file types are left alone: non-HTML files render through browser-generated wrapper documents the swap would clobber, and `.md` has a dedicated markdown extension.
+All matched file, local-network, and tailnet `.html`/`.htm`/`.xhtml` pages are live-reloaded. Other file types are left alone: non-HTML files render through browser-generated wrapper documents the swap would clobber, and `.md` has a dedicated markdown extension.
+
+Run checks with `uv run --no-project python -m unittest discover` and `bash -n show-in-browser.sh`.

@@ -47,22 +47,22 @@ shift
 
 if [ "$(uname -s)" != "Darwin" ]; then
     HOST_FILE="$HOME/.config/show-in-browser/host"
-    if [ ! -f "$HOST_FILE" ]; then
-        echo "Missing $HOST_FILE. Create it with one line containing your Mac's tailnet hostname (for example, macbook.ts.net); macOS Remote Login must be enabled." >&2
+    MAC_HOSTS=()
+    if [ -f "$HOST_FILE" ]; then
+        while IFS= read -r host; do MAC_HOSTS+=("$host"); done < "$HOST_FILE"
+    fi
+    if [ "${#MAC_HOSTS[@]}" -ne 2 ] || [ -z "${MAC_HOSTS[0]}" ] || [ -z "${MAC_HOSTS[1]}" ]; then
+        echo "$HOST_FILE must contain two lines: the Mac's .local hostname, then its tailnet hostname. Enable macOS Remote Login and configure SSH keys." >&2
         exit 1
     fi
-    MACHOST=$(<"$HOST_FILE")
+    SSH_OPTIONS=(-o BatchMode=yes -o ConnectTimeout=3 -o ConnectionAttempts=1
+                 -o StrictHostKeyChecking=yes -o "HostKeyAlias=${MAC_HOSTS[1]%%.*}")
 
     if $IS_PATH; then
         SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
         INPUT=$(python3 "$SCRIPT_DIR/serve.py" allow "$INPUT")
         ENCODED_PATH=$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))" "$INPUT")
-        IDENTITY=$(tailscale status --json | python3 -c 'import json, sys; s=json.load(sys.stdin)["Self"]; print(s["DNSName"].rstrip(".")); print(s["TailscaleIPs"][0])')
-        TAILSCALE_DNS=${IDENTITY%%$'\n'*}
-        TAILSCALE_IP=${IDENTITY#*$'\n'}
-        FILE_URL="http://$TAILSCALE_DNS:8377$ENCODED_PATH"
-        HEALTH_URL="http://$TAILSCALE_IP:8377/"
-
+        HEALTH_URL="http://127.0.0.1:8377/"
         if ! curl -sf -o /dev/null --max-time 2 "$HEALTH_URL"; then
             systemctl --user start show-in-browser.service
             SERVER_READY=false
@@ -80,7 +80,26 @@ if [ "$(uname -s)" != "Darwin" ]; then
         fi
     fi
 
-    exec ssh -o BatchMode=yes "$MACHOST" '~/Git/show-in-browser/show-in-browser.sh' "$FILE_URL" "$@"
+    for route in 0 1; do
+        MACHOST=${MAC_HOSTS[$route]}
+        PROBE=true
+        if $IS_PATH; then
+            if [ "$route" -eq 0 ]; then
+                FILE_HOST="$(hostname -s).local"
+            else
+                FILE_HOST=$(tailscale status --json | python3 -c 'import json, sys; print(json.load(sys.stdin)["Self"]["DNSName"].rstrip("."))')
+            fi
+            ORIGIN="http://$FILE_HOST:8377"
+            FILE_URL="$ORIGIN$ENCODED_PATH"
+            printf -v PROBE 'curl -fsS --max-time 3 -o /dev/null %q' "$ORIGIN/"
+        fi
+        if ssh "${SSH_OPTIONS[@]}" "$MACHOST" "$PROBE"; then
+            printf -v REMOTE_ARGS '%q ' "$FILE_URL" "$@"
+            exec ssh "${SSH_OPTIONS[@]}" "$MACHOST" "~/Git/show-in-browser/show-in-browser.sh $REMOTE_ARGS"
+        fi
+    done
+    echo "Cannot reach the Mac and file server over the local network or tailnet." >&2
+    exit 1
 fi
 
 BROWSER_APP="${BROWSER_APP:-Vivaldi}"

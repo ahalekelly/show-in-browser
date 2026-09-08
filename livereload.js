@@ -2,7 +2,7 @@
 // scopes injection to .html/.htm/.xhtml — other types render through
 // browser-generated wrapper documents the swap would clobber). file:// reads
 // are relayed through the background service worker to an offscreen extension
-// page; tailnet HTTP pages can fetch themselves directly. Any changed text is
+// page; HTTP pages can fetch themselves directly. Any changed text is
 // swapped into the page in a single paint instead of navigating, so there is
 // no white flash and the scroll position is kept — except pages with <script>s,
 // which get a normal (flashing) reload, because the swap would not re-run them.

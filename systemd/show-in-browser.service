@@ -1,5 +1,5 @@
 [Unit]
-Description=Serve home-directory reports over Tailscale
+Description=Serve home-directory reports on the trusted desktop LAN and tailnet
 
 [Service]
 Type=exec
