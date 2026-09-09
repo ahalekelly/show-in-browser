@@ -150,11 +150,12 @@ def listener_addresses():
 
 def main():
     allowed_files_dir = runtime_allowed_files_dir()
-    if len(sys.argv) == 3 and sys.argv[1] == "allow":
-        print(allow_file(Path(sys.argv[2]), allowed_files_dir))
+    if len(sys.argv) > 2 and sys.argv[1] == "allow":
+        for argument in sys.argv[2:]:
+            print(allow_file(Path(argument), allowed_files_dir))
         return
     if len(sys.argv) != 1:
-        raise SystemExit(f"usage: {sys.argv[0]} [allow FILE]")
+        raise SystemExit(f"usage: {sys.argv[0]} [allow FILE...]")
 
     handler = functools.partial(
         FileHandler,
