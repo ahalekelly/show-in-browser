@@ -11,10 +11,10 @@ import io
 import ipaddress
 import json
 import selectors
-from contextlib import ExitStack
 import os
 import subprocess
 import sys
+import time
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -34,6 +34,7 @@ SERVABLE_SUFFIXES = {
     ".mp3", ".m4a", ".wav", ".ogg", ".mp4", ".webm",
 }
 PORT = 8377
+ADDRESS_REFRESH_SECONDS = 5
 
 # Reports run to tens of megabytes of HTML that gzip to a fifth of that, and
 # live reload refetches the whole file every second, so compressed bodies are
@@ -163,13 +164,27 @@ def main():
         home_root=Path.home().resolve(),
         allowed_files_dir=allowed_files_dir,
     )
-    with ExitStack() as stack, selectors.DefaultSelector() as selector:
-        for address in listener_addresses():
-            server = stack.enter_context(ThreadingHTTPServer((address, PORT), handler))
-            selector.register(server, selectors.EVENT_READ, server)
-        while True:
-            for key, _ in selector.select():
-                key.data.handle_request()
+    servers = {}
+    next_refresh = 0
+    with selectors.DefaultSelector() as selector:
+        try:
+            while True:
+                if time.monotonic() >= next_refresh:
+                    addresses = set(listener_addresses())
+                    for address in servers.keys() - addresses:
+                        server = servers.pop(address)
+                        selector.unregister(server)
+                        server.server_close()
+                    for address in addresses - servers.keys():
+                        server = ThreadingHTTPServer((address, PORT), handler)
+                        servers[address] = server
+                        selector.register(server, selectors.EVENT_READ, server)
+                    next_refresh = time.monotonic() + ADDRESS_REFRESH_SECONDS
+                for key, _ in selector.select(next_refresh - time.monotonic()):
+                    key.data.handle_request()
+        finally:
+            for server in servers.values():
+                server.server_close()
 
 
 if __name__ == "__main__":
