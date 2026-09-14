@@ -118,12 +118,28 @@ for opt in "$@"; do
     esac
 done
 
-PREV_APP=$(osascript -e 'tell application "System Events" to get name of first process whose frontmost is true')
+run_applescript() {
+    local output status
+    if output=$(osascript "$@" 2>&1); then
+        printf '%s\n' "$output"
+    else
+        status=$?
+        printf '%s\n' "$output" >&2
+        case "$output" in
+            *'(-1743)'*)
+                echo 'macOS denied Automation access. In System Settings > Privacy & Security > Automation, allow the app running this command to control the application named in the error. See README.md Setup for permission details.' >&2
+                ;;
+        esac
+        return "$status"
+    fi
+}
+
+PREV_APP=$(run_applescript -e 'tell application "System Events" to get name of first process whose frontmost is true')
 
 # bash 3.2 misparses a heredoc placed directly inside $(...), so the osascript
 # call lives in a function
 find_or_open() {
-    osascript - "$FILE_URL" "$LAST" <<EOF
+    run_applescript - "$FILE_URL" "$LAST" <<EOF
 on run argv
     set theURL to item 1 of argv
     set wantLast to item 2 of argv is "true"
@@ -165,13 +181,13 @@ if [ "$RESULT" = "opened new tab" ] && ! $FOCUS; then
     # the browser is about to activate itself because of the new tab; wait for
     # that activation to land, then hand focus back
     sleep 0.5
-    osascript -e "tell application \"System Events\" to set frontmost of process \"$PREV_APP\" to true"
+    run_applescript -e "tell application \"System Events\" to set frontmost of process \"$PREV_APP\" to true"
 fi
 
 if $FOCUS; then
     # let the tab strip settle, then locate the tab fresh and bring it forward
     sleep 1
-    osascript - "$FILE_URL" <<EOF
+    run_applescript - "$FILE_URL" <<EOF
 on run argv
     set theURL to item 1 of argv
     tell application "$BROWSER_APP"
