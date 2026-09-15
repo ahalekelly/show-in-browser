@@ -2,7 +2,7 @@
 # /// script
 # requires-python = ">=3.11"
 # ///
-"""Serve web pages, their assets, and media files from the user's home on the trusted desktop LAN and tailnet."""
+"""Serve web pages, their assets, and media files from the user's home and /tmp on the trusted desktop LAN and tailnet."""
 
 import functools
 import gzip
@@ -42,8 +42,8 @@ cache = {}
 
 
 class FileHandler(SimpleHTTPRequestHandler):
-    def __init__(self, *args, home_root, allowed_files_dir, **kwargs):
-        self.home_root = home_root
+    def __init__(self, *args, allowed_roots, allowed_files_dir, **kwargs):
+        self.allowed_roots = allowed_roots
         self.allowed_files_dir = allowed_files_dir
         super().__init__(*args, **kwargs)
 
@@ -64,7 +64,7 @@ class FileHandler(SimpleHTTPRequestHandler):
 
         path = Path(self.translate_path(self.path)).resolve()
         default_allowed = (
-            self.home_root in path.parents
+            any(root in path.parents for root in self.allowed_roots)
             and path.suffix.lower() in SERVABLE_SUFFIXES
         )
         explicitly_allowed = approval_path(path, self.allowed_files_dir).exists()
@@ -160,7 +160,7 @@ def main():
     handler = functools.partial(
         FileHandler,
         directory="/",
-        home_root=Path.home().resolve(),
+        allowed_roots=(Path.home().resolve(), Path("/tmp").resolve()),
         allowed_files_dir=allowed_files_dir,
     )
     with ExitStack() as stack, selectors.DefaultSelector() as selector:

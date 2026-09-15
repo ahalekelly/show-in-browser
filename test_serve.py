@@ -15,11 +15,12 @@ from serve import FileHandler, allow_file
 class FileHandlerTest(unittest.TestCase):
     def setUp(self):
         self.home = tempfile.TemporaryDirectory()
+        self.tmp = tempfile.TemporaryDirectory()
         self.allowed_files = Path(self.home.name, "allowed-files")
         handler = functools.partial(
             FileHandler,
             directory="/",
-            home_root=Path(self.home.name).resolve(),
+            allowed_roots=(Path(self.home.name).resolve(), Path(self.tmp.name).resolve()),
             allowed_files_dir=self.allowed_files,
         )
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
@@ -32,6 +33,7 @@ class FileHandlerTest(unittest.TestCase):
         self.server.server_close()
         self.thread.join()
         self.home.cleanup()
+        self.tmp.cleanup()
 
     def url(self, path):
         return self.origin + quote(str(path))
@@ -52,6 +54,15 @@ class FileHandlerTest(unittest.TestCase):
             path.write_text(name)
             with urlopen(self.url(path)) as response:
                 self.assertEqual(response.read().decode(), name)
+
+    def test_serves_temporary_documents_without_explicit_approval(self):
+        path = Path(self.tmp.name, "report.md")
+        path.write_text("temporary report")
+        with urlopen(self.url(path)) as response:
+            self.assertEqual(response.read(), b"temporary report")
+        private = Path(self.tmp.name, "private.txt")
+        private.write_text("private")
+        self.assert_not_found(private)
 
     def test_serves_page_assets_and_media(self):
         for name, ctype in (
@@ -82,14 +93,15 @@ class FileHandlerTest(unittest.TestCase):
         self.assert_not_found(text)
         self.assert_not_found(Path(self.home.name))
 
-    def test_rejects_paths_outside_home_and_symlink_escapes(self):
+    def test_rejects_paths_outside_allowed_roots_and_symlink_escapes(self):
         with tempfile.TemporaryDirectory() as outside:
             secret = Path(outside, "secret.html")
             secret.write_text("secret")
             self.assert_not_found(secret)
-            link = Path(self.home.name, "secret.html")
-            link.symlink_to(secret)
-            self.assert_not_found(link)
+            for directory in (self.home.name, self.tmp.name):
+                link = Path(directory, "secret.html")
+                link.symlink_to(secret)
+                self.assert_not_found(link)
 
     def test_serves_an_explicitly_allowed_file(self):
         with tempfile.TemporaryDirectory() as outside:
