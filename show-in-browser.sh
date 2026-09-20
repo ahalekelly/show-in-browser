@@ -80,17 +80,16 @@ if [ "$(uname -s)" != "Darwin" ]; then
         fi
     fi
 
+    if $IS_PATH; then
+        FILE_HOST=$(tailscale status --json | python3 -c 'import json, sys; print(json.load(sys.stdin)["Self"]["DNSName"].rstrip("."))')
+        ORIGIN="http://$FILE_HOST:8377"
+        FILE_URL="$ORIGIN$ENCODED_PATH"
+    fi
+
     for route in 0 1; do
         MACHOST=${MAC_HOSTS[$route]}
         PROBE=true
         if $IS_PATH; then
-            if [ "$route" -eq 0 ]; then
-                FILE_HOST="$(hostname -s).local"
-            else
-                FILE_HOST=$(tailscale status --json | python3 -c 'import json, sys; print(json.load(sys.stdin)["Self"]["DNSName"].rstrip("."))')
-            fi
-            ORIGIN="http://$FILE_HOST:8377"
-            FILE_URL="$ORIGIN$ENCODED_PATH"
             printf -v PROBE 'curl -fsS --max-time 3 -o /dev/null %q' "$ORIGIN/"
         fi
         if ssh "${SSH_OPTIONS[@]}" "$MACHOST" "$PROBE"; then
@@ -98,7 +97,7 @@ if [ "$(uname -s)" != "Darwin" ]; then
             exec ssh "${SSH_OPTIONS[@]}" "$MACHOST" "~/Git/show-in-browser/show-in-browser.sh $REMOTE_ARGS"
         fi
     done
-    echo "Cannot reach the Mac and file server over the local network or tailnet." >&2
+    echo "Cannot reach the Mac over LAN or Tailscale, or the file server over Tailscale." >&2
     exit 1
 fi
 

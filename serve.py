@@ -2,7 +2,7 @@
 # /// script
 # requires-python = ">=3.11"
 # ///
-"""Serve web pages, their assets, and media files from the user's home and /tmp on the trusted desktop LAN and tailnet."""
+"""Serve web pages, their assets, and media files from the user's home and /tmp over localhost and Tailscale."""
 
 import functools
 import gzip

@@ -1,0 +1,9 @@
+add table inet show_in_browser
+flush table inet show_in_browser
+
+table inet show_in_browser {
+    chain input {
+        type filter hook input priority -10; policy accept;
+        tcp dport 8377 iifname != { "lo", "tailscale0" } counter reject with tcp reset
+    }
+}

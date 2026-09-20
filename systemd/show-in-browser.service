@@ -1,8 +1,9 @@
 [Unit]
-Description=Serve home-directory reports on the trusted desktop LAN and tailnet
+Description=Serve home-directory reports over localhost and Tailscale
 
 [Service]
 Type=exec
+ExecStartPre=/usr/bin/systemctl is-active show-in-browser-firewall.service
 ExecStart=/usr/bin/python3 %h/Git/show-in-browser/serve.py
 Restart=on-failure
 RestartSec=5s

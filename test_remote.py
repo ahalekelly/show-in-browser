@@ -40,8 +40,6 @@ elif name == "tailscale":
 elif name == "ssh":
     if os.environ.get("FAIL_ALL") or ("Mac.local" in args and os.environ.get("FAIL_LOCAL")):
         sys.exit(255)
-    if "Mac.local" in args and any("curl" in arg for arg in args) and os.environ.get("FAIL_LOCAL_HTTP"):
-        sys.exit(1)
 ''')
         mock.chmod(0o755)
         for name in ("uname", "hostname", "ssh", "curl", "tailscale", "systemctl"):
@@ -58,14 +56,14 @@ elif name == "ssh":
     def calls(self):
         return [json.loads(line) for line in self.log.read_text().splitlines()]
 
-    def test_local_route_never_uses_tailscale(self):
+    def test_local_ssh_uses_tailnet_file_url(self):
         result = self.run_script(str(self.file), "last")
         self.assertEqual(result.returncode, 0, result.stderr)
         calls = self.calls()
-        self.assertFalse(any(call[0] == "tailscale" for call in calls))
+        self.assertTrue(any(call[0] == "tailscale" for call in calls))
         opened = calls[-1]
         self.assertIn("Mac.local", opened)
-        self.assertIn("http://desktop.local:8377", opened[-1])
+        self.assertIn("http://desktop.example.ts.net:8377", opened[-1])
         self.assertIn("HostKeyAlias=mac", opened)
 
     def test_unavailable_local_ssh_uses_tailnet(self):
@@ -74,11 +72,6 @@ elif name == "ssh":
         opened = self.calls()[-1]
         self.assertIn("mac.example.ts.net", opened)
         self.assertIn("http://desktop.example.ts.net:8377", opened[-1])
-
-    def test_unavailable_local_http_uses_tailnet(self):
-        result = self.run_script(str(self.file), FAIL_LOCAL_HTTP="1")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("mac.example.ts.net", self.calls()[-1])
 
     def test_no_route_fails_without_opening_browser(self):
         result = self.run_script(str(self.file), FAIL_ALL="1")

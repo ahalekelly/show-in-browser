@@ -1,0 +1,16 @@
+[Unit]
+Description=Restrict the report server to localhost and Tailscale
+DefaultDependencies=no
+After=local-fs.target
+Wants=network-pre.target
+Before=network-pre.target shutdown.target
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/show-in-browser.nft
+ExecReload=/usr/sbin/nft -f /etc/show-in-browser.nft
+
+[Install]
+WantedBy=sysinit.target

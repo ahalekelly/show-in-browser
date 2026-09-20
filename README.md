@@ -8,7 +8,7 @@ Show local files in a Mac Chromium browser from the command line or a headless L
 
 ## Remote mode (headless Linux → Mac)
 
-The Linux command tries the local network first, then Tailscale. It verifies the Mac's SSH host key and checks that the Mac can reach the file server before opening the URL. Local connections use `.local` hostnames and work without Tailscale.
+The Linux command reaches the Mac over SSH using the local network first, then Tailscale. It verifies the Mac's SSH host key and checks that the Mac can reach the file server over Tailscale before opening the URL. Both machines need Tailscale for remote file viewing.
 
 Put the Mac's local and tailnet hostnames, in that order, in `~/.config/show-in-browser/host`:
 
@@ -19,15 +19,19 @@ adrians-macbook-air.troodon-bigeye.ts.net
 
 Enable **Remote Login** on the Mac and configure key-based SSH access. Both routes use the tailnet hostname's first label (`adrians-macbook-air` above) as the SSH host-key alias; verify and trust that key before use. Local hostnames must resolve on both machines.
 
-Install the user service and enable lingering so the server starts at boot:
+Install the firewall before starting the server, then enable lingering so the server starts at boot:
 
 ```sh
+sudo install -m 644 systemd/show-in-browser.nft /etc/show-in-browser.nft
+sudo install -m 644 systemd/show-in-browser-firewall.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now show-in-browser-firewall.service
 systemctl --user link "$HOME/Git/show-in-browser/systemd/show-in-browser.service"
 systemctl --user enable --now show-in-browser.service
 loginctl enable-linger "$USER"
 ```
 
-The server listens on all IPv4 interfaces (`0.0.0.0:8377`), including LAN and Tailscale addresses that become available after startup. Run it only on the trusted desktop network: HTTP is unauthenticated, so devices that can reach port 8377 can read served files. The Mac remains a client; this service is not installed there. It serves HTML, Markdown, and PDF documents under the user's home directory and `/tmp` by default, plus the assets pages reference: CSS, JavaScript, JSON, XML, WebAssembly, web manifests, fonts, images, audio, and video (the full suffix list is `SERVABLE_SUFFIXES` in `serve.py`). Other paths are rejected. Passing another regular file to `show-in-browser.sh` authorizes that file until reboot. Text responses are gzipped. The extension injects only into matching `.local` and `.ts.net` HTTP `.html`, `.htm`, and `.xhtml` pages, leaving other formats to the browser.
+The server listens on all IPv4 interfaces (`0.0.0.0:8377`), including LAN and Tailscale addresses that become available after startup. The firewall allows port 8377 only through loopback and `tailscale0`, blocking direct LAN access. Rules load before networking, survive firewall service stops, and match the interface name even when Tailscale is recreated. The server starts only when the firewall service is active. HTTP has no login; Tailscale access rules control which peers can connect. The Mac remains a client; this service is not installed there. It serves HTML, Markdown, and PDF documents under the user's home directory and `/tmp` by default, plus the assets pages reference: CSS, JavaScript, JSON, XML, WebAssembly, web manifests, fonts, images, audio, and video (the full suffix list is `SERVABLE_SUFFIXES` in `serve.py`). Other paths are rejected. Passing another regular file to `show-in-browser.sh` authorizes that file until reboot. Text responses are gzipped. The extension injects only into matching `.local` and `.ts.net` HTTP `.html`, `.htm`, and `.xhtml` pages, leaving other formats to the browser.
 
 ## The extension
 
@@ -48,4 +52,4 @@ Why not AppleScript: its `reload` does a full document reload (blank → refetch
 
 All matched file, local-network, and tailnet `.html`/`.htm`/`.xhtml` pages are live-reloaded. Other file types are left alone: non-HTML files render through browser-generated wrapper documents the swap would clobber, and `.md` has a dedicated markdown extension.
 
-Run checks with `uv run --no-project python -m unittest discover` and `bash -n show-in-browser.sh`.
+Run checks with `uv run --no-project python -m unittest discover` and `bash -n show-in-browser.sh`. On Linux, `sudo bash test_firewall.sh` tests LAN blocking and Tailscale interface recreation in isolated network namespaces.
