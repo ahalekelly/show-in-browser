@@ -8,12 +8,7 @@ import functools
 import gzip
 import hashlib
 import io
-import ipaddress
-import json
-import selectors
-from contextlib import ExitStack
 import os
-import subprocess
 import sys
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -123,31 +118,6 @@ def allow_file(path, allowed_files_dir):
     return path
 
 
-def listener_addresses():
-    routes = json.loads(subprocess.run(
-        ["ip", "-j", "-4", "route", "show", "default"],
-        check=True, capture_output=True, text=True,
-    ).stdout)
-    lan_device = min(routes, key=lambda route: route.get("metric", 0))["dev"]
-    interfaces = json.loads(subprocess.run(
-        ["ip", "-j", "-4", "address", "show", "scope", "global"],
-        check=True, capture_output=True, text=True,
-    ).stdout)
-    addresses = ["127.0.0.1"]
-    for interface in interfaces:
-        if interface["ifname"] not in (lan_device, "tailscale0"):
-            continue
-        for info in interface["addr_info"]:
-            address = info["local"]
-            if interface["ifname"] == lan_device and not any(
-                ipaddress.ip_address(address) in ipaddress.ip_network(network)
-                for network in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")
-            ):
-                raise ValueError(f"Desktop LAN address must be private: {address}")
-            addresses.append(address)
-    return addresses
-
-
 def main():
     allowed_files_dir = runtime_allowed_files_dir()
     if len(sys.argv) > 2 and sys.argv[1] == "allow":
@@ -163,13 +133,8 @@ def main():
         allowed_roots=(Path.home().resolve(), Path("/tmp").resolve()),
         allowed_files_dir=allowed_files_dir,
     )
-    with ExitStack() as stack, selectors.DefaultSelector() as selector:
-        for address in listener_addresses():
-            server = stack.enter_context(ThreadingHTTPServer((address, PORT), handler))
-            selector.register(server, selectors.EVENT_READ, server)
-        while True:
-            for key, _ in selector.select():
-                key.data.handle_request()
+    with ThreadingHTTPServer(("0.0.0.0", PORT), handler) as server:
+        server.serve_forever()
 
 
 if __name__ == "__main__":
