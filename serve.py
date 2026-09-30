@@ -9,6 +9,7 @@ import gzip
 import hashlib
 import io
 import os
+import shlex
 import sys
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -29,6 +30,9 @@ SERVABLE_SUFFIXES = {
     ".mp3", ".m4a", ".wav", ".ogg", ".mp4", ".webm",
 }
 PORT = 8377
+# send_error appends a period to the message and explanation.
+SERVING_RULES = ("show-in-browser serves HTML, Markdown, PDF, and page assets under "
+                 "the home directory and /tmp; other files need `serve.py allow FILE`")
 
 # Reports run to tens of megabytes of HTML that gzip to a fifth of that, and
 # live reload refetches the whole file every second, so compressed bodies are
@@ -58,13 +62,21 @@ class FileHandler(SimpleHTTPRequestHandler):
             return io.BytesIO(body)
 
         path = Path(self.translate_path(self.path)).resolve()
-        default_allowed = (
-            any(root in path.parents for root in self.allowed_roots)
-            and path.suffix.lower() in SERVABLE_SUFFIXES
-        )
+        under_root = any(root in path.parents for root in self.allowed_roots)
+        default_allowed = under_root and path.suffix.lower() in SERVABLE_SUFFIXES
         explicitly_allowed = approval_path(path, self.allowed_files_dir).exists()
-        if not path.is_file() or not (default_allowed or explicitly_allowed):
-            self.send_error(HTTPStatus.NOT_FOUND)
+        if not path.is_file() or not (under_root or explicitly_allowed):
+            self.send_error(HTTPStatus.NOT_FOUND, explain=SERVING_RULES)
+            return None
+        if not (default_allowed or explicitly_allowed):
+            # A file under the caller's own home is no secret, and naming the
+            # fix saves a round of guessing.
+            self.send_error(
+                HTTPStatus.FORBIDDEN,
+                f"{path.suffix or 'suffixless'} files are not served by default",
+                f"Authorize it until reboot with `python3 {Path(__file__).resolve()} "
+                f"allow {shlex.quote(str(path))}`. {SERVING_RULES}",
+            )
             return None
 
         ctype = self.guess_type(path)

@@ -38,11 +38,16 @@ class FileHandlerTest(unittest.TestCase):
     def url(self, path):
         return self.origin + quote(str(path))
 
-    def assert_not_found(self, path):
+    def assert_error(self, path, code):
         with self.assertRaises(HTTPError) as error:
             urlopen(self.url(path))
-        self.assertEqual(error.exception.code, 404)
+        self.assertEqual(error.exception.code, code)
+        body = error.exception.read().decode()
         error.exception.close()
+        return body
+
+    def assert_not_found(self, path):
+        self.assert_error(path, 404)
 
     def test_health_check(self):
         with urlopen(self.origin + "/") as response:
@@ -62,7 +67,7 @@ class FileHandlerTest(unittest.TestCase):
             self.assertEqual(response.read(), b"temporary report")
         private = Path(self.tmp.name, "private.txt")
         private.write_text("private")
-        self.assert_not_found(private)
+        self.assert_error(private, 403)
 
     def test_serves_page_assets_and_media(self):
         for name, ctype in (
@@ -87,10 +92,14 @@ class FileHandlerTest(unittest.TestCase):
             self.assertEqual(response.headers["Content-Encoding"], "gzip")
             self.assertEqual(gzip.decompress(response.read()), b"report")
 
-    def test_rejects_other_file_types_and_directories(self):
+    def test_rejects_other_file_types_naming_the_allow_command(self):
         text = Path(self.home.name, "private.txt")
         text.write_text("private")
-        self.assert_not_found(text)
+        body = self.assert_error(text, 403)
+        self.assertIn(".txt files are not served by default", body)
+        self.assertIn(f"serve.py allow {text}", body)
+
+    def test_rejects_directories(self):
         self.assert_not_found(Path(self.home.name))
 
     def test_rejects_paths_outside_allowed_roots_and_symlink_escapes(self):
