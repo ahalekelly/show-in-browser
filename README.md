@@ -31,6 +31,12 @@ systemctl --user enable --now show-in-browser.service
 loginctl enable-linger "$USER"
 ```
 
+On WSL with mirrored networking there is no `tailscale0`, so the Windows Hyper-V firewall (inbound blocked by default) takes the nftables service's place. Skip the firewall service, clear the unit's firewall check with a drop-in at `~/.config/systemd/user/show-in-browser.service.d/wsl.conf` containing `[Service]` and `ExecStartPre=`, and admit the port from Tailscale in an admin PowerShell:
+
+```powershell
+New-NetFirewallHyperVRule -Name WSL-ShowInBrowser-Tailscale-Inbound -DisplayName "show-in-browser in WSL from Tailscale" -Direction Inbound -VMCreatorId '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' -Protocol TCP -LocalPorts 8377 -RemoteAddresses 100.64.0.0/10,fd7a:115c:a1e0::/48 -Action Allow
+```
+
 The server listens on all IPv4 interfaces (`0.0.0.0:8377`), including LAN and Tailscale addresses that become available after startup. The firewall allows port 8377 only through loopback and `tailscale0`, blocking direct LAN access. Rules load before networking, survive firewall service stops, and match the interface name even when Tailscale is recreated. The server starts only when the firewall service is active. HTTP has no login; Tailscale access rules control which peers can connect. The Mac remains a client; this service is not installed there. It serves HTML, Markdown, and PDF documents under the user's home directory and `/tmp` by default, plus the assets pages reference: CSS, JavaScript, JSON, XML, WebAssembly, web manifests, fonts, images, audio, and video (the full suffix list is `SERVABLE_SUFFIXES` in `serve.py`). A file of another type under those directories gets a 403 naming its type and the `serve.py allow FILE...` command, which authorizes those files until reboot (`show-in-browser.sh` runs it for any path it opens); everything else is a 404. Text responses are gzipped. The extension injects only into matching `.local` and `.ts.net` HTTP `.html`, `.htm`, and `.xhtml` pages, leaving other formats to the browser.
 
 ## The extension
