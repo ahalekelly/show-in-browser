@@ -52,6 +52,14 @@ class FileHandler(SimpleHTTPRequestHandler):
         ctype = super().guess_type(path)
         return ctype + "; charset=utf-8" if ctype.startswith("text/") else ctype
 
+    # With Last-Modified but no Cache-Control, browsers reuse a response without
+    # asking for about a tenth of the file's age, so a report regenerated in
+    # place could stay stale for an hour. no-cache keeps the copy but
+    # revalidates on every use; an unchanged file still answers with a 304.
+    def end_headers(self):
+        self.send_header("Cache-Control", "no-cache")
+        super().end_headers()
+
     def send_head(self):
         if urlsplit(self.path).path == "/":
             body = b"show-in-browser\n"

@@ -92,6 +92,19 @@ class FileHandlerTest(unittest.TestCase):
             self.assertEqual(response.headers["Content-Encoding"], "gzip")
             self.assertEqual(gzip.decompress(response.read()), b"report")
 
+    def test_revalidates_on_every_use(self):
+        path = Path(self.home.name, "report.html")
+        path.write_text("report")
+        for headers in ({}, {"Accept-Encoding": "gzip"}):
+            with urlopen(Request(self.url(path), headers=headers)) as response:
+                self.assertEqual(response.headers["Cache-Control"], "no-cache")
+                last_modified = response.headers["Last-Modified"]
+            request = Request(self.url(path), headers={**headers, "If-Modified-Since": last_modified})
+            with self.assertRaises(HTTPError) as error:
+                urlopen(request)
+            self.assertEqual(error.exception.code, 304)
+            error.exception.close()
+
     def test_rejects_other_file_types_naming_the_allow_command(self):
         text = Path(self.home.name, "private.txt")
         text.write_text("private")
