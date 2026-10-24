@@ -105,6 +105,17 @@ class FileHandlerTest(unittest.TestCase):
             self.assertEqual(error.exception.code, 304)
             error.exception.close()
 
+    def test_shows_allowed_text_files_as_plain_text(self):
+        cases = {"bom.csv": b"a,b\n", "drc.rpt": b"report\n", "run.sh": b"echo hi\n",
+                 "board.zip": b"PK\x03\x04\0\0binary"}
+        for name, content in cases.items():
+            path = Path(self.home.name, name)
+            path.write_bytes(content)
+            allow_file(path, self.allowed_files)
+            with urlopen(self.url(path)) as response:
+                expected = "application/zip" if name.endswith(".zip") else "text/plain; charset=utf-8"
+                self.assertEqual(response.headers["Content-Type"], expected, name)
+
     def test_rejects_other_file_types_naming_the_allow_command(self):
         text = Path(self.home.name, "private.txt")
         text.write_text("private")

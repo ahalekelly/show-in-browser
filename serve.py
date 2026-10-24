@@ -4,6 +4,7 @@
 # ///
 """Serve web pages, their assets, and media files from the user's home and /tmp over localhost and Tailscale."""
 
+import codecs
 import functools
 import gzip
 import hashlib
@@ -29,6 +30,11 @@ SERVABLE_SUFFIXES = {
     ".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".svg", ".ico",
     ".mp3", ".m4a", ".wav", ".ogg", ".mp4", ".webm",
 }
+# Types the browser displays itself; anything else that is text is shown as text/plain.
+RENDERED = ("text/html", "text/css", "text/javascript", "text/markdown", "text/xml",
+            "application/pdf", "application/json", "application/javascript", "application/xml",
+            "application/xhtml+xml", "application/wasm", "application/manifest+json",
+            "image/", "audio/", "video/", "font/")
 PORT = 8377
 # send_error appends a period to the message and explanation.
 SERVING_RULES = ("show-in-browser serves HTML, Markdown, PDF, and page assets under "
@@ -40,16 +46,32 @@ SERVING_RULES = ("show-in-browser serves HTML, Markdown, PDF, and page assets un
 cache = {}
 
 
+def is_utf8_text(path):
+    with open(path, "rb") as f:
+        head = f.read(8192)
+    if b"\0" in head:
+        return False
+    try:
+        codecs.getincrementaldecoder("utf-8")().decode(head)  # a character split at the cut is fine
+    except UnicodeDecodeError:
+        return False
+    return True
+
+
 class FileHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, allowed_roots, allowed_files_dir, **kwargs):
         self.allowed_roots = allowed_roots
         self.allowed_files_dir = allowed_files_dir
         super().__init__(*args, **kwargs)
 
-    # Without a charset the browser decodes text as Windows-1252, and unlike
-    # HTML, Markdown has no <meta charset> to override that.
+    # Browsers download CSV, shell scripts, and suffixes with no registered type
+    # (.log, .rpt, ...) instead of showing them, so any other file that reads as
+    # UTF-8 is sent as plain text. Without a charset the browser decodes text as
+    # Windows-1252, and unlike HTML, Markdown has no <meta charset> to override that.
     def guess_type(self, path):
         ctype = super().guess_type(path)
+        if not ctype.startswith(RENDERED) and is_utf8_text(path):
+            ctype = "text/plain"
         return ctype + "; charset=utf-8" if ctype.startswith("text/") else ctype
 
     # With Last-Modified but no Cache-Control, browsers reuse a response without
