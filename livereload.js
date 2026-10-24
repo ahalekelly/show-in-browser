@@ -30,9 +30,9 @@
 
   async function readHttp(seed = false) {
     try {
-      // no-store: the server sends Last-Modified but no Cache-Control, so
-      // Chromium's heuristic freshness (10% of file age) would otherwise
-      // serve stale content for old files and change detection would miss edits
+      // no-store: Last-Modified has one-second resolution, so a revalidating
+      // fetch would get a 304 for an edit made in the same second as the copy
+      // it holds, and change detection would miss that edit.
       const response = await fetch(url, { cache: 'no-store' });
       if (!response.ok) return null;
       const text = await response.text();
