@@ -82,6 +82,12 @@ class FileHandler(SimpleHTTPRequestHandler):
         self.send_header("Cache-Control", "no-cache")
         super().end_headers()
 
+    # Vivaldi re-polls open tabs every few seconds; logging each unchanged (304)
+    # answer would flood the journal.
+    def log_request(self, code="-", size="-"):
+        if code != HTTPStatus.NOT_MODIFIED:
+            super().log_request(code, size)
+
     def send_head(self):
         if urlsplit(self.path).path == "/":
             body = b"show-in-browser\n"
