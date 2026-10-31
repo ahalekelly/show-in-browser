@@ -51,6 +51,8 @@ Why not AppleScript: its `reload` does a full document reload (blank → refetch
 
 ## Setup
 
+On macOS, the app that runs the script needs **Automation** access to the browser and **System Events** (System Settings → Privacy & Security → Automation). Permissions belong to the calling app, so a terminal's approval doesn't cover an agent app. `Not authorized to send Apple events … (-1743)` means that access is missing.
+
 1. Open `vivaldi://extensions` (or `chrome://extensions`)
 2. Enable **Developer mode**
 3. **Load unpacked** → select this directory
